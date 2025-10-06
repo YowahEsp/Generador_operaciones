@@ -1,2 +1,2 @@
 # Generador_operaciones
-Generador de operaciones artimeticas
+Generador de operaciones artiméticas
