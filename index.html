@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Hojas de Operaciones con Soluciones</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .controles {
+            max-width: 900px;
+            margin: 0 auto 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        .btn-generar {
+            background-color: #2563eb;
+            color: white;
+        }
+
+        .btn-generar:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-imprimir {
+            background-color: #16a34a;
+            color: white;
+        }
+
+        .btn-imprimir:hover {
+            background-color: #15803d;
+        }
+
+        .control-tamano {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-tamano label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .control-tamano input[type="range"] {
+            width: 150px;
+        }
+
+        .control-operacion {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-operacion label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .control-operacion select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 180px;
+        }
+
+        .hoja {
+            max-width: 900px;
+            margin: 0 auto 40px;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background-image:
+                linear-gradient(to right, #eaeaea 1px, transparent 1px),
+                linear-gradient(to bottom, #eaeaea 1px, transparent 1px);
+            background-size: 20px 20px;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+        }
+
+        .titulo-hoja {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #1f2937;
+        }
+
+        .contenedor-operaciones {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px 30px;
+        }
+        
+        .contenedor-operaciones.divisiones {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 60px 40px;
+        }
+
+        .operacion {
+            line-height: 1.6;
+        }
+
+        .numero {
+            text-align: right;
+            letter-spacing: 8px;
+            padding-right: 8px;
+        }
+
+        .linea {
+            border-top: 2px solid #000;
+            margin-top: 5px;
+            margin-left: 20px;
+        }
+
+        .espacio-resultado {
+            height: 30px;
+        }
+        
+        .solucion {
+            color: #059669;
+        }
+
+        .numero-solucion {
+            text-align: right;
+            letter-spacing: 8px;
+            padding-right: 8px;
+            color: #059669;
+        }
+
+        .llevada {
+            font-size: 0.7em;
+            color: #dc2626;
+            position: relative;
+            top: -0.5em;
+        }
+
+        .division-wrapper {
+            display: flex;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .dividendo {
+            display: inline-block;
+            letter-spacing: 8px;
+            padding-right: 6px;
+        }
+
+        .division-esquina {
+            position: relative;
+            display: inline-block;
+            margin-right: 6px;
+            height: 1em;
+            top: 0.35em;
+        }
+
+        .division-esquina::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background-color: black;
+        }
+
+        .division-esquina::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 6em;
+            height: 2px;
+            background-color: black;
+        }
+
+        .divisor {
+            display: inline-block;
+            letter-spacing: 6px;
+            padding-left: 6px;
+        }
+
+        .espacio-resultado-division {
+            min-height: 250px;
+        }
+
+        .tabla-solucion {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .tabla-solucion td {
+            padding: 0;
+            text-align: center;
+            width: 1.2em;
+            position: relative;
+        }
+
+        .tabla-solucion .llevada-cell {
+            color: #dc2626;
+            font-size: 0.7em;
+            vertical-align: bottom;
+            padding-bottom: 0.3em;
+        }
+
+        .tabla-solucion .digito {
+            padding-top: 0.2em;
+        }
+
+        .tabla-solucion .linea-cell {
+            border-top: 2px solid #000;
+            padding: 0;
+        }
+
+        .tabla-solucion .signo {
+            text-align: right;
+            padding-right: 5px;
+            width: auto;
+        }
+        
+        .solucion-division-visual {
+            white-space: pre;
+            font-family: monospace;
+            line-height: 1.5;
+            color: #059669;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                font-family: Arial, sans-serif;
+            }
+
+            .controles {
+                display: none;
+            }
+
+            .hoja {
+                box-shadow: none;
+                padding: 20px;
+                max-width: 100%;
+                border-radius: 0;
+                background-image:
+                    linear-gradient(to right, #eaeaea 1px, transparent 1px),
+                    linear-gradient(to bottom, #eaeaea 1px, transparent 1px);
+                background-size: 20px 20px;
+                background-color: white;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+                page-break-after: always;
+            }
+
+            .contenedor-operaciones {
+                gap: 30px 20px;
+            }
+
+            @page {
+                margin: 1.5cm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="controles">
+        <button class="btn-generar" onclick="generarHoja()">🔄 Generar Nueva Hoja</button>
+        <button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+        <div class="control-operacion">
+            <label for="tipo-operacion">Tipo de operación:</label>
+            <select id="tipo-operacion">
+                <option value="suma">Sumas</option>
+                <option value="resta">Restas</option>
+                <option value="multiplicacion_1x4">Multiplicaciones (1x4)</option>
+                <option value="multiplicacion_5x2">Multiplicaciones (5x2)</option>
+                <option value="division_1_cifra">Divisiones (por 1 cifra)</option>
+                <option value="division_2_cifras">Divisiones (por 2 cifras)</option>
+                <option value="combinada">Combinada (alternada)</option>
+            </select>
+        </div>
+        <div class="control-tamano">
+            <label for="tamano-numero">Tamaño de los números:</label>
+            <input type="range" id="tamano-numero" min="12" max="36" value="18">
+            <span id="valor-tamano">18 px</span>
+        </div>
+    </div>
+
+    <div class="hoja" id="hoja-ejercicios">
+        <div class="titulo-hoja">EJERCICIOS</div>
+        <div class="contenedor-operaciones" id="operaciones"></div>
+    </div>
+
+    <div class="hoja" id="hoja-soluciones">
+        <div class="titulo-hoja">SOLUCIONES</div>
+        <div class="contenedor-operaciones" id="soluciones"></div>
+    </div>
+
+    <script>
+        let tamanoActual = 18;
+        let tipoOperacion = 'suma';
+
+        function actualizarTamano() {
+            const input = document.getElementById('tamano-numero');
+            const span = document.getElementById('valor-tamano');
+            tamanoActual = input.value;
+            span.textContent = tamanoActual + ' px';
+            document.querySelectorAll('.operacion').forEach(op => {
+                op.style.fontSize = tamanoActual + 'px';
+            });
+        }
+
+        function actualizarTipoOperacion() {
+            tipoOperacion = document.getElementById('tipo-operacion').value;
+        }
+
+        document.getElementById('tamano-numero').addEventListener('input', actualizarTamano);
+        document.getElementById('tipo-operacion').addEventListener('change', actualizarTipoOperacion);
+        
+        function generarNumero(digitos) {
+            const min = Math.pow(10, digitos - 1);
+            const max = Math.pow(10, digitos) - 1;
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function generarRestaValida() {
+            const sustraendo = Math.floor(Math.random() * 9000) + 1000;
+            const minuendo = Math.floor(Math.random() * (9999 - sustraendo + 1)) + sustraendo;
+            return { minuendo, sustraendo };
+        }
+
+        function generarMultiplicacionValida() {
+            const multiplicando = generarNumero(4);
+            const multiplicador = Math.floor(Math.random() * 9) + 1;
+            return { multiplicando, multiplicador };
+        }
+
+        function generarMultiplicacion5x2() {
+            const multiplicando = generarNumero(5);
+            const multiplicador = generarNumero(2);
+            return { multiplicando, multiplicador };
+        }
+        
+        function generarDivision1Cifra() {
+            const dividendo = generarNumero(5);
+            const divisor = Math.floor(Math.random() * 8) + 2;
+            if (dividendo < divisor) return generarDivision1Cifra();
+            return { dividendo, divisor };
+        }
+
+        function generarDivision2Cifras() {
+            const dividendo = generarNumero(7);
+            const divisor = generarNumero(2);
+            if (dividendo < divisor) return generarDivision2Cifras();
+            return { dividendo, divisor };
+        }
+
+        function formatearNumero(num) {
+            return num.toString().split('').join(' ');
+        }
+        
+        // --- FUNCIÓN DE DIVISIÓN MODIFICADA ---
+        function resolverDivisionEstiloAlgoritmo(dividendo, divisor) {
+            const D_str = dividendo.toString();
+            const d_str = divisor.toString();
+            const d_val = parseInt(d_str);
+            
+            const Q_str = Math.floor(dividendo / d_val).toString();
+
+            const D_esp = D_str.split('').join(' ');
+            const d_esp = d_str.split('').join(' ');
+            const Q_esp = Q_str.split('').join(' ');
+            const lenD_esp = D_esp.length;
+
+            let output_lines = [];
+            output_lines.push(`${D_esp} | ${d_esp}`);
+            output_lines.push(`${' '.repeat(lenD_esp)} |${'-'.repeat(Q_esp.length)}`);
+            
+            let intermediate_lines = [];
+            
+            let current_dividend_str = '';
+            let dividend_idx = 0;
+            while (dividend_idx < D_str.length) {
+                current_dividend_str += D_str[dividend_idx];
+                if (parseInt(current_dividend_str) >= d_val) {
+                    break;
+                }
+                dividend_idx++;
+            }
+
+            let final_remainder_val = -1;
+            
+            while(true) {
+                let current_dividend_val = parseInt(current_dividend_str);
+                
+                let quotient_digit = Math.floor(current_dividend_val / d_val);
+                let current_remainder_val = current_dividend_val % d_val;
+                
+                dividend_idx++;
+                
+                if (dividend_idx >= D_str.length) {
+                    final_remainder_val = current_remainder_val;
+                    break;
+                }
+                
+                current_dividend_str = current_remainder_val.toString() + D_str[dividend_idx];
+                
+                // Lógica de padding para los restos intermedios
+                const target_len_intermedio = d_str.length + 1;
+                let num_to_display = current_dividend_str.padStart(target_len_intermedio, '0');
+                if (parseInt(current_dividend_str) >= Math.pow(10, d_str.length)) {
+                    num_to_display = current_dividend_str;
+                }
+                
+                let P_esp = num_to_display.split('').join(' ');
+                let target_pos = dividend_idx * 2;
+                let padding = target_pos - (P_esp.length - 1);
+                let line = ' '.repeat(Math.max(0, padding)) + P_esp;
+                intermediate_lines.push(line);
+            }
+
+            if (final_remainder_val !== -1) {
+                 // Lógica de padding para el resto final
+                 const target_len_final = d_str.length;
+                 let remainder_to_display = final_remainder_val.toString().padStart(target_len_final, '0');
+                 if (final_remainder_val >= Math.pow(10, d_str.length -1) && d_str.length > 1) {
+                    remainder_to_display = final_remainder_val.toString();
+                 }
+                 if (final_remainder_val === 0 && d_str.length === 1) {
+                    remainder_to_display = "0";
+                 }
+
+
+                 let R_esp = remainder_to_display.split('').join(' ');
+                 let target_pos = (D_str.length - 1) * 2;
+                 let padding = target_pos - (R_esp.length - 1);
+                 let line = ' '.repeat(Math.max(0, padding)) + R_esp;
+                 intermediate_lines.push(line);
+            }
+            
+            if (intermediate_lines.length > 0) {
+                output_lines.push(`${intermediate_lines[0].padEnd(lenD_esp, ' ')} | ${Q_esp}`);
+                for (let k = 1; k < intermediate_lines.length; k++) {
+                    output_lines.push(intermediate_lines[k]);
+                }
+            } else {
+                 const R_val = dividendo % d_val;
+                 output_lines.push(`${' '.repeat(lenD_esp)} | ${Q_esp}`);
+                 const R_esp = R_val.toString().split('').join(' ');
+                 const end_pos_simple = (D_str.length - 1) * 2;
+                 const padding_len_simple = end_pos_simple - (R_esp.length - 1);
+                 output_lines.push(' '.repeat(Math.max(0, padding_len_simple)) + R_esp);
+            }
+
+            return `<pre class="solucion-division-visual">${output_lines.join('\n')}</pre>`;
+        }
+        
+        function crearTablaSolucion(digitos, signos, llevadas, resultado) {
+            const maxLen = Math.max(...digitos.map(arr => arr.length), resultado.length);
+            let html = '<table class="tabla-solucion">';
+            
+            if (llevadas.some(l => l !== null && l !== '')) {
+                html += '<tr>';
+                html += '<td class="signo"></td>';
+                for (let i = 0; i < maxLen; i++) {
+                    const llevadaIndex = maxLen - 1 - i;
+                    html += `<td class="llevada-cell">${llevadas[llevadaIndex] || ''}</td>`;
+                }
+                html += '</tr>';
+            }
+            
+            digitos.forEach((digitosNum, index) => {
+                html += '<tr>';
+                html += `<td class="signo">${signos[index] || ''}</td>`;
+                
+                for (let i = 0; i < maxLen; i++) {
+                    const digitoIndex = maxLen - 1 - i;
+                    const digito = digitosNum[digitoIndex] !== undefined ? digitosNum[digitoIndex] : '';
+                    html += `<td class="digito">${digito}</td>`;
+                }
+                html += '</tr>';
+            });
+
+            html += '<tr>';
+            html += '<td class="signo"></td>';
+            html += `<td colspan="${maxLen}" class="linea-cell"></td>`;
+            html += '</tr>';
+
+            html += '<tr>';
+            html += '<td class="signo"></td>';
+            for (let i = 0; i < maxLen; i++) {
+                const digitoIndex = maxLen - 1 - i;
+                const digito = resultado[digitoIndex] !== undefined ? resultado[digitoIndex] : '';
+                html += `<td class="digito solucion">${digito}</td>`;
+            }
+            html += '</tr>';
+            
+            html += '</table>';
+            return html;
+        }
+
+        function resolverSuma(nums) {
+            const resultado = nums.reduce((a, b) => a + b, 0);
+            const maxLen = Math.max(...nums.map(n => n.toString().length), resultado.toString().length);
+            
+            let llevadas = new Array(maxLen + 1).fill(null);
+            for (let pos = 0; pos < maxLen; pos++) {
+                let sumaColumna = (llevadas[pos] || 0);
+                for (let num of nums) {
+                    sumaColumna += Math.floor(num / Math.pow(10, pos)) % 10;
+                }
+                if (sumaColumna >= 10) {
+                    llevadas[pos + 1] = Math.floor(sumaColumna / 10);
+                }
+            }
+            
+            if (resultado.toString().length > Math.max(...nums.map(n => n.toString().length))) {
+                llevadas[maxLen - 1] = null;
+            }
+
+            const digitos = nums.map(num => {
+                return num.toString().padStart(maxLen, ' ').split('').reverse();
+            });
+            const signos = new Array(nums.length).fill('');
+            signos[nums.length - 1] = '+';
+            
+            const resultadoDigitos = resultado.toString().padStart(maxLen, ' ').split('').reverse();
+            return crearTablaSolucion(digitos, signos, llevadas, resultadoDigitos);
+        }
+
+        function resolverResta(minuendo, sustraendo) {
+            const resultado = minuendo - sustraendo;
+            const minuendoStr = minuendo.toString();
+            const sustraendoStr = sustraendo.toString();
+            const maxLen = Math.max(minuendoStr.length, sustraendoStr.length);
+
+            let llevadas = new Array(maxLen + 1).fill(null);
+            let borrow = 0;
+
+            for (let i = 0; i < maxLen; i++) {
+                const minuendoDigit = parseInt(minuendoStr[minuendoStr.length - 1 - i] || '0');
+                const sustraendoDigit = parseInt(sustraendoStr[sustraendoStr.length - 1 - i] || '0');
+
+                let minuendoActual = minuendoDigit - borrow;
+                
+                if (minuendoActual < sustraendoDigit) {
+                    borrow = 1; 
+                    if (i < maxLen) { 
+                        llevadas[i + 1] = '•'; 
+                    }
+                } else {
+                    borrow = 0;
+                }
+            }
+            
+            const digitos = [
+                minuendo.toString().padStart(maxLen, ' ').split('').reverse(),
+                sustraendo.toString().padStart(maxLen, ' ').split('').reverse()
+            ];
+            const signos = ['', '−'];
+            const resultadoDigitos = resultado.toString().padStart(maxLen, ' ').split('').reverse();
+            
+            return crearTablaSolucion(digitos, signos, llevadas, resultadoDigitos);
+        }
+
+        function resolverMultiplicacion1Cifra(multiplicando, multiplicador) {
+            const resultado = multiplicando * multiplicador;
+            const maxLen = Math.max(multiplicando.toString().length, resultado.toString().length);
+
+            let llevadas = new Array(maxLen + 1).fill(null);
+            const digitosInvertidos = multiplicando.toString().split('').reverse().map(Number);
+            let carry = 0;
+            for (let i = 0; i < digitosInvertidos.length; i++) {
+                const producto = digitosInvertidos[i] * multiplicador + carry;
+                carry = Math.floor(producto / 10);
+                if (carry > 0) {
+                    llevadas[i + 1] = carry;
+                }
+            }
+
+            if (resultado.toString().length > multiplicando.toString().length && llevadas.length >= maxLen) {
+                llevadas[maxLen - 1] = null;
+            }
+
+            const digitosTabla = [];
+            digitosTabla.push(multiplicando.toString().padStart(maxLen, ' ').split('').reverse());
+            const multiplicadorArr = new Array(maxLen).fill('');
+            multiplicadorArr[0] = multiplicador.toString();
+            if (maxLen > 1) {
+                multiplicadorArr[1] = '×';
+            }
+            digitosTabla.push(multiplicadorArr);
+            
+            const signos = ['', ''];
+            const resultadoDigitos = resultado.toString().padStart(maxLen, ' ').split('').reverse();
+            
+            return crearTablaSolucion(digitosTabla, signos, llevadas, resultadoDigitos);
+        }
+
+        function resolverMultiplicacion2Cifras(multiplicando, multiplicador) {
+            const multStr = multiplicador.toString();
+            const unidades = parseInt(multStr[multStr.length - 1]);
+            const decenas = multStr.length > 1 ? parseInt(multStr[multStr.length - 2]) : 0;
+            const producto1 = multiplicando * unidades;
+            const producto2 = multiplicando * decenas;
+            const resultado = multiplicando * multiplicador;
+
+            const multiplicadorConSigno = '×' + multiplicador.toString();
+            const producto2Str = producto2 > 0 ? producto2.toString() : '';
+            
+            const numsStr = [
+                multiplicando.toString(),
+                multiplicadorConSigno,
+                producto1.toString(),
+                producto2Str,
+                resultado.toString()
+            ];
+            
+            const maxLen = Math.max(...numsStr.map(s => s.length + (s === producto2Str && s !== '' ? 1 : 0)));
+
+            const crearFila = (texto, signo = '', clase = '', desplazamiento = 0) => {
+                let htmlFila = '<tr>';
+                htmlFila += `<td class="signo">${signo}</td>`;
+                const textoPadding = texto.padStart(maxLen - desplazamiento, ' ');
+                for (const char of textoPadding) {
+                    htmlFila += `<td class="digito ${clase}">${char === ' ' ? '' : char}</td>`;
+                }
+                for (let i = 0; i < desplazamiento; i++) {
+                    htmlFila += '<td></td>';
+                }
+                htmlFila += '</tr>';
+                return htmlFila;
+            };
+            
+            const crearLinea = () => {
+                return `<tr><td class="signo"></td><td colspan="${maxLen}" class="linea-cell"></td></tr>`;
+            };
+
+            let html = '<table class="tabla-solucion">';
+            html += crearFila(multiplicando.toString());
+            html += crearFila(multiplicadorConSigno, '');
+            html += crearLinea();
+            html += crearFila(producto1.toString(), '', 'solucion');
+            if (producto2 > 0) {
+                html += crearFila(producto2.toString(), '', 'solucion', 1);
+            }
+            html += crearLinea();
+            html += crearFila(resultado.toString(), '', 'solucion');
+            html += '</table>';
+            
+            return html;
+        }
+        
+        function resolverDivision1Cifra(dividendo, divisor) {
+            return resolverDivisionEstiloAlgoritmo(dividendo, divisor);
+        }
+
+        function resolverDivision2Cifras(dividendo, divisor) {
+            return resolverDivisionEstiloAlgoritmo(dividendo, divisor);
+        }
+        
+        function generarHoja() {
+            const contenedor = document.getElementById('operaciones');
+            const contenedorSol = document.getElementById('soluciones');
+            contenedor.innerHTML = '';
+            contenedorSol.innerHTML = '';
+            
+            const numOperaciones = tipoOperacion.startsWith('division') ? 8 : 27;
+            
+            if (tipoOperacion.startsWith('division')) {
+                contenedor.classList.add('divisiones');
+                contenedorSol.classList.add('divisiones');
+            } else {
+                contenedor.classList.remove('divisiones');
+                contenedorSol.classList.remove('divisiones');
+            }
+
+            for (let i = 0; i < numOperaciones; i++) {
+                let operacionHTML = '';
+                let solucionHTML = '';
+                
+                let tipoActual = tipoOperacion;
+                if (tipoOperacion === 'combinada') {
+                    const operaciones = ['suma', 'resta', 'multiplicacion_1x4', 'multiplicacion_5x2'];
+                    tipoActual = operaciones[i % operaciones.length];
+                }
+                
+                if (tipoActual === 'suma') {
+                    const num1 = generarNumero(4);
+                    const num2 = generarNumero(4);
+                    const num3 = generarNumero(4);
+                    
+                    operacionHTML = `
+                        <div class="numero">${formatearNumero(num1)}</div>
+                        <div class="numero">${formatearNumero(num2)}</div>
+                        <div class="numero">+ ${formatearNumero(num3)}</div>
+                        <div class="linea"></div>
+                        <div class="espacio-resultado"></div>
+                    `;
+                    solucionHTML = resolverSuma([num1, num2, num3]);
+                    
+                } else if (tipoActual === 'resta') {
+                    const { minuendo, sustraendo } = generarRestaValida();
+                    operacionHTML = `
+                        <div class="numero">${formatearNumero(minuendo)}</div>
+                        <div class="numero">− ${formatearNumero(sustraendo)}</div>
+                        <div class="linea"></div>
+                        <div class="espacio-resultado"></div>
+                    `;
+                    solucionHTML = resolverResta(minuendo, sustraendo);
+                    
+                } else if (tipoActual === 'multiplicacion_1x4') {
+                    const { multiplicando, multiplicador } = generarMultiplicacionValida();
+                    operacionHTML = `
+                        <div class="numero">${formatearNumero(multiplicando)}</div>
+                        <div class="numero">× ${formatearNumero(multiplicador)}</div>
+                        <div class="linea"></div>
+                        <div class="espacio-resultado"></div>
+                    `;
+                    solucionHTML = resolverMultiplicacion1Cifra(multiplicando, multiplicador);
+                    
+                } else if (tipoActual === 'multiplicacion_5x2') {
+                    const { multiplicando, multiplicador } = generarMultiplicacion5x2();
+                    operacionHTML = `
+                        <div class="numero">${formatearNumero(multiplicando)}</div>
+                        <div class="numero">× ${formatearNumero(multiplicador)}</div>
+                        <div class="linea"></div>
+                        <div style="height: 120px;"></div>
+                    `;
+                    solucionHTML = resolverMultiplicacion2Cifras(multiplicando, multiplicador);
+                    
+                } else if (tipoActual === 'division_1_cifra') {
+                    const { dividendo, divisor } = generarDivision1Cifra();
+                    operacionHTML = `
+                        <div class="division-wrapper">
+                            <span class="dividendo">${formatearNumero(dividendo)}</span>
+                            <span class="division-esquina"></span>
+                            <span class="divisor">${formatearNumero(divisor)}</span>
+                        </div>
+                        <div class="espacio-resultado-division"></div>
+                    `;
+                    solucionHTML = resolverDivision1Cifra(dividendo, divisor);
+                    
+                } else if (tipoActual === 'division_2_cifras') {
+                    const { dividendo, divisor } = generarDivision2Cifras();
+                    operacionHTML = `
+                        <div class="division-wrapper">
+                            <span class="dividendo">${formatearNumero(dividendo)}</span>
+                            <span class="division-esquina"></span>
+                            <span class="divisor">${formatearNumero(divisor)}</span>
+                        </div>
+                        <div class="espacio-resultado-division"></div>
+                    `;
+                    solucionHTML = resolverDivision2Cifras(dividendo, divisor);
+                }
+
+                const operacion = document.createElement('div');
+                operacion.className = 'operacion';
+                operacion.style.fontSize = tamanoActual + 'px';
+                operacion.innerHTML = operacionHTML;
+                contenedor.appendChild(operacion);
+
+                const solucion = document.createElement('div');
+                solucion.className = 'operacion';
+                solucion.style.fontSize = tamanoActual + 'px';
+                solucion.innerHTML = solucionHTML;
+                contenedorSol.appendChild(solucion);
+            }
+        }
+
+        generarHoja();
+    </script>
+</body>
+</html>
