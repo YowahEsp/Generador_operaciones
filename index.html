@@ -220,13 +220,33 @@
 
     body:not(.imprimir-con-soluciones) .hoja-soluciones { display: none !important; }
 
+    /* Compresión SOLO de impresión: la hoja se imprime completa, tal como
+       está en pantalla, con todas sus operaciones. Fuente y huecos se reducen
+       un punto para que el peor caso (6 filas de sumas de 3 filas, ~956px en
+       pantalla) entre con margen en el área imprimible real (~940px). */
+    .titulo-hoja { font-size: 20px; margin-bottom: 18px; }
+    .contenedor-operaciones { gap: 24px 22px; }
+    .contenedor-operaciones.dos-col { gap: 24px 40px; }
+    .operacion { font-size: 16px; }
+    .hoja-soluciones .operacion { font-size: 15px; }
+    .esp-div1 { height: 150px; }
+    .esp-div2 { height: 215px; }
+
     @page { margin: 10mm 9mm; size: A4 portrait; }
   }
 
-  /* Durante la exportación a PDF (se captura la hoja en pantalla) */
+  /* Durante la exportación a PDF (se captura la hoja en pantalla):
+     misma compresión que en impresión para que cada hoja quepa en su página */
   body.exportando-pdf .hoja {
     box-shadow: none; border-radius: 0; margin: 0 auto;
   }
+  body.exportando-pdf .titulo-hoja { font-size: 20px; margin-bottom: 18px; }
+  body.exportando-pdf .contenedor-operaciones { gap: 24px 22px; }
+  body.exportando-pdf .contenedor-operaciones.dos-col { gap: 24px 40px; }
+  body.exportando-pdf .operacion { font-size: 16px; }
+  body.exportando-pdf .hoja-soluciones .operacion { font-size: 15px; }
+  body.exportando-pdf .esp-div1 { height: 150px; }
+  body.exportando-pdf .esp-div2 { height: 215px; }
 </style>
 </head>
 <body>
