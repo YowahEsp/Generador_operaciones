@@ -247,12 +247,61 @@
   body.exportando-pdf .hoja-soluciones .operacion { font-size: 15px; }
   body.exportando-pdf .esp-div1 { height: 150px; }
   body.exportando-pdf .esp-div2 { height: 215px; }
+
+  /* ================= HOJA AMPLIA =================
+     Formato de los cuadernillos: A4 a sangre con cuadrícula de 10 pt,
+     cifras grandes y espaciadas, numeración romana gris, código arriba a la
+     derecha y solucionario con llevadas en rojo y resultados en verde.
+     Todo se coloca en puntos (pt) sobre un lienzo de 595,28 × 841,89 pt. */
+  .hoja .lienzo-amplia { display: none; }
+  .hoja.amplia {
+    width: 210mm; height: 296mm; min-height: 0;
+    padding: 0; overflow: hidden; background-image: none;
+  }
+  .hoja.amplia > :not(.lienzo-amplia) { display: none !important; }
+  .hoja.amplia .lienzo-amplia {
+    display: block; position: relative;
+    width: 595.28pt; height: 841.89pt;
+    background-color: #fff;
+  }
+  /* Cuadrícula vectorial (nítida al imprimir; un degradado CSS se rasteriza) */
+  .amp-cuadricula { position: absolute; left: 0; top: 0; width: 595.28pt; height: 841.89pt; }
+  .amp-t {
+    position: absolute; white-space: pre; line-height: 1;
+    font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-weight: 700;
+  }
+  .amp-h { font-family: Helvetica, Arial, "Liberation Sans", sans-serif; }
+  .amp-n { font-weight: 400; }
+  .amp-l { position: absolute; background: #1e293b; }
+
+  @media print {
+    body.modo-amplia .hoja.amplia {
+      width: 210mm; height: 296mm; min-height: 0;
+      padding: 0; margin: 0; overflow: hidden;
+      background-image: none;
+      page-break-after: always; break-after: page;
+    }
+    body.modo-amplia .hoja.amplia:last-child { page-break-after: auto; break-after: auto; }
+  }
+</style>
+<!-- En hoja amplia la cuadrícula llega al borde del papel: la página se imprime
+     sin márgenes. Esta hoja de estilo solo se activa en ese formato. -->
+<style id="estilo-pagina-amplia" media="print">
+  @page { size: A4 portrait; margin: 0; }
 </style>
 </head>
 <body>
 
   <div class="controles">
     <button class="btn-generar" onclick="generarHoja()">🔄 Generar nueva hoja</button>
+
+    <div class="control-grupo">
+      <label for="formato-hoja">Formato de hoja</label>
+      <select id="formato-hoja">
+        <option value="estandar">Estándar</option>
+        <option value="amplia">Hoja amplia</option>
+      </select>
+    </div>
 
     <div class="control-grupo">
       <label for="tipo-operacion">Tipo de operación</label>
@@ -297,12 +346,14 @@
       <div class="codigo-hoja" id="codigo-ejercicios"></div>
       <div class="titulo-hoja">Resuelve las siguientes operaciones</div>
       <div class="contenedor-operaciones" id="operaciones"></div>
+      <div class="lienzo-amplia" id="lienzo-amplia-ejercicios"></div>
     </div>
 
     <div class="hoja hoja-soluciones" id="hoja-soluciones">
       <div class="codigo-hoja" id="codigo-soluciones"></div>
       <div class="titulo-hoja">Solucionario<span class="sub" id="sub-soluciones"></span></div>
       <div class="contenedor-operaciones" id="soluciones"></div>
+      <div class="lienzo-amplia" id="lienzo-amplia-soluciones"></div>
     </div>
   </div>
 
@@ -729,6 +780,331 @@ const TIPOS = {
 };
 
 /* =====================================================================
+   HOJA AMPLIA — formato de los cuadernillos
+   Medidas en pt sobre un A4 (595,28 × 841,89 pt), tomadas de los PDF
+   originales. Cada operación se dibuja respecto a la posición de su número
+   romano (lx, ly).
+   ===================================================================== */
+const AMP_COLOR = { K: '#1e293b', B: '#2563eb', G: '#059669', R: '#dc2626', L: '#94a3b8' };
+const AMP_ANCHO_CIFRA = 0.556;   /* avance de una cifra en Arial/Liberation Bold (em) */
+
+/* Rejillas: columnas, separación horizontal y vertical entre operaciones */
+const AMP_REJILLA = {
+  basica: { cols: 5, px: 114.25, py: 159.5 },  /* sumas, restas, mixta: 25 operaciones */
+  mult1:  { cols: 4, px: 142.83, py: 159.5 },  /* ×1 cifra: 20 operaciones */
+  ancha:  { cols: 3, px: 190.45, py: 199.4 }   /* ×2 cifras y divisiones: 12 operaciones */
+};
+
+/* Tipos de la hoja amplia. La letra del código identifica el tipo. */
+const AMP_TIPOS = {
+  'a-sumas':  { nombre: 'Sumas (2 y 3 filas)',             letra: 'B', rejilla: 'basica', n: 25, sol: 'sumas' },
+  'a-suma2':  { nombre: 'Sumas de 2 filas',                letra: 'B', rejilla: 'basica', n: 25, sol: 'sumas' },
+  'a-suma3':  { nombre: 'Sumas de 3 filas',                letra: 'B', rejilla: 'basica', n: 25, sol: 'sumas' },
+  'a-resta':  { nombre: 'Restas',                          letra: 'R', rejilla: 'basica', n: 25, sol: 'restas' },
+  'a-mixta':  { nombre: 'Mixta: sumas y restas',           letra: 'M', rejilla: 'basica', n: 25, sol: 'mixta' },
+  'a-mult1':  { nombre: 'Multiplicaciones ×1 cifra',       letra: 'F', rejilla: 'mult1',  n: 20 },
+  'a-mult2':  { nombre: 'Multiplicaciones ×2 cifras',      letra: 'G', rejilla: 'ancha',  n: 12 },
+  'a-div1':   { nombre: 'Divisiones ÷1 cifra',             letra: 'D', rejilla: 'ancha',  n: 12 },
+  'a-div2':   { nombre: 'Divisiones ÷2 cifras',            letra: 'E', rejilla: 'ancha',  n: 12 }
+};
+
+/* Parámetros del solucionario de sumas y restas según la hoja
+   s: cuerpo de cifra · p: paso entre columnas · R: x de las unidades
+   y0/dy: primera fila y separación · signo: x del signo · dl: raya bajo la
+   última fila · dr: resultado bajo la raya · cs/cy: llevadas de suma ·
+   ms/my: marcas de resta (cuerpo y elevación) */
+const AMP_SOL_BASICA = {
+  sumas:  { s: 17.1, p: 14.77, R: 85.1, y0: 14.4, dy: 26, signo: 12.6, dl: 20.3, dr: 2.8, cs: 9.5, cy: -0.6, ms: 10, my: 4.8 },
+  restas: { s: 18.3, p: 17.93, R: 83.2, y0: 15.5, dy: 33, signo: 13.3, dl: 21.4, dr: 2.8, cs: 9.5, cy: -0.6, ms: 10, my: 4.8 },
+  mixta:  { s: 16.6, p: 14.8,  R: 85.3, y0: 14.8, dy: 27, signo: 12.8, dl: 19.7, dr: 2.9, cs: 9.5, cy: -0.6, ms: 9,  my: 9.2 }
+};
+
+function barajar(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/* ---------- Generadores de la hoja amplia ---------- */
+function ampSuma(filas) {
+  const n = filas || (Math.random() < 0.5 ? 2 : 3);
+  return { op: '+', nums: Array.from({ length: n }, gen4) };
+}
+function ampResta() {
+  /* Minuendo y sustraendo de 4 cifras, minuendo estrictamente mayor */
+  const sustraendo = alAzar(1000, 9998);
+  return { op: '−', nums: [alAzar(sustraendo + 1, 9999), sustraendo] };
+}
+function ampListaOperaciones(tipo) {
+  const n = AMP_TIPOS[tipo].n;
+  const rep = f => Array.from({ length: n }, f);
+  switch (tipo) {
+    case 'a-sumas': return rep(() => ampSuma());
+    case 'a-suma2': return rep(() => ampSuma(2));
+    case 'a-suma3': return rep(() => ampSuma(3));
+    case 'a-resta': return rep(ampResta);
+    case 'a-mixta': return barajar([...Array.from({ length: 15 }, ampResta),
+                                    ...Array.from({ length: 10 }, () => ampSuma())]);
+    case 'a-mult1': return rep(() => { const o = generarMult1(); return { op: '×', a: o.multiplicando, b: o.multiplicador }; });
+    case 'a-mult2': return rep(() => { const o = generarMult2(); return { op: '×', a: o.multiplicando, b: o.multiplicador }; });
+    case 'a-div1':  return rep(() => { const o = generarDiv1();  return { op: '÷', a: o.dividendo, b: o.divisor }; });
+    case 'a-div2':  return rep(() => { const o = generarDiv2();  return { op: '÷', a: o.dividendo, b: o.divisor }; });
+  }
+  return [];
+}
+
+/* ---------- Cálculos para el solucionario ---------- */
+/* Llevadas de una suma: { columna: valor } (columna 0 = unidades).
+   La llevada que sale de la última columna no se anota: va al resultado. */
+function ampLlevadasSuma(nums) {
+  const nd = Math.max(...nums.map(n => String(n).length));
+  const res = {};
+  let c = 0;
+  for (let i = 0; i < nd; i++) {
+    const s = nums.reduce((t, n) => t + Math.floor(n / 10 ** i) % 10, 0) + c;
+    c = Math.floor(s / 10);
+    if (c && i + 1 < nd) res[i + 1] = c;
+  }
+  return res;
+}
+/* Resta «llevando»: columnas donde el minuendo recibe 10 (y el sustraendo
+   de la columna siguiente recibe 1) */
+function ampPrestamosResta(a, b) {
+  const cols = [];
+  let c = 0;
+  for (let i = 0; i < String(a).length; i++) {
+    const da = Math.floor(a / 10 ** i) % 10;
+    const db = Math.floor(b / 10 ** i) % 10 + c;
+    if (da < db) { cols.push(i); c = 1; } else c = 0;
+  }
+  return cols;
+}
+/* Llevadas de un producto por una cifra */
+function ampLlevadasProducto(a, d) {
+  const res = {};
+  const len = String(a).length;
+  let c = 0;
+  for (let i = 0; i < len; i++) {
+    const s = (Math.floor(a / 10 ** i) % 10) * d + c;
+    c = Math.floor(s / 10);
+    if (c && i + 1 < len) res[i + 1] = c;
+  }
+  return res;
+}
+/* División: cifras del cociente y filas de restos con la cifra bajada.
+   pos = índice de la cifra del dividendo bajo la que termina cada fila. */
+function ampPasosDivision(D, d) {
+  const s = String(D);
+  let k = String(d).length;
+  if (parseInt(s.slice(0, k), 10) < d) k++;
+  let parcial = parseInt(s.slice(0, k), 10);
+  let cociente = '';
+  const filas = [];
+  while (true) {
+    const r = parcial % d;
+    cociente += Math.floor(parcial / d);
+    if (k < s.length) {
+      filas.push({ txt: String(r) + s[k], pos: k });
+      parcial = r * 10 + Number(s[k]);
+      k++;
+    } else {
+      filas.push({ txt: String(r), pos: k - 1 });
+      break;
+    }
+  }
+  return { cociente, filas };
+}
+
+/* ---------- Primitivas de dibujo (pt) ----------
+   y = parte alta del texto tal como la mide el PDF original; se corrige a la
+   caja CSS con line-height 1. */
+function ampTexto(out, txt, x, y, s, color, fuente) {
+  const helv = fuente === 'H' || fuente === 'Hn';
+  const top = helv ? y - 0.1285 * s : y + 0.0585 * s;
+  const cls = 'amp-t' + (helv ? ' amp-h' : '') + (fuente === 'Hn' ? ' amp-n' : '');
+  out.push(`<span class="${cls}" style="left:${x.toFixed(2)}pt;top:${top.toFixed(2)}pt;`
+    + `font-size:${s}pt;color:${AMP_COLOR[color]}">${txt}</span>`);
+}
+/* Número alineado a la derecha: cada cifra en su columna (R = x de las unidades) */
+function ampNumero(out, str, R, p, y, s, color) {
+  const t = String(str);
+  for (let i = 0; i < t.length; i++) {
+    ampTexto(out, t[t.length - 1 - i], R - i * p, y, s, color);
+  }
+}
+function ampRaya(out, x0, y, x1, w) {
+  out.push(`<div class="amp-l" style="left:${x0.toFixed(2)}pt;top:${(y - w / 2).toFixed(2)}pt;`
+    + `width:${(x1 - x0).toFixed(2)}pt;height:${w}pt"></div>`);
+}
+function ampRayaV(out, x, y0, y1, w) {
+  out.push(`<div class="amp-l" style="left:${(x - w / 2).toFixed(2)}pt;top:${y0.toFixed(2)}pt;`
+    + `width:${w}pt;height:${(y1 - y0).toFixed(2)}pt"></div>`);
+}
+/* Cifra pequeña (llevada) centrada sobre la columna de una cifra de cuerpo s */
+function ampCentrada(xCifra, s, cs) { return xCifra + (s - cs) * AMP_ANCHO_CIFRA / 2; }
+
+/* ---------- Sumas y restas ---------- */
+function ampEnunciadoBasica(out, lx, ly, o) {
+  const s = 20.8, p = 17.93, R = lx + 82.5;
+  o.nums.forEach((n, f) => ampNumero(out, n, R, p, ly + 13.5 + f * 33, s, 'K'));
+  const ultima = ly + 13.5 + (o.nums.length - 1) * 33;
+  ampTexto(out, o.op, lx + 12.6, ultima, s, 'B');
+  ampRaya(out, lx + 14, ultima + 24, lx + 97.3, 1.5);
+}
+function ampSolucionBasica(out, lx, ly, o, g) {
+  const R = lx + g.R;
+  const filaY = f => ly + g.y0 + f * g.dy;
+  o.nums.forEach((n, f) => ampNumero(out, n, R, g.p, filaY(f), g.s, 'K'));
+  const ultima = filaY(o.nums.length - 1);
+  ampTexto(out, o.op, lx + g.signo, ultima, g.s, 'B');
+  const yRaya = ultima + g.dl;
+  ampRaya(out, lx + 14, yRaya, lx + 97.3, 1.5);
+
+  if (o.op === '+') {
+    const total = o.nums.reduce((t, n) => t + n, 0);
+    ampNumero(out, total, R, g.p, yRaya + g.dr, g.s, 'G');
+    const llev = ampLlevadasSuma(o.nums);
+    for (const col in llev) {
+      ampTexto(out, String(llev[col]), ampCentrada(R - col * g.p, g.s, g.cs), ly + g.cy, g.cs, 'R');
+    }
+  } else {
+    const [a, b] = o.nums;
+    /* Resultado con todas las columnas del minuendo, como en los cuadernillos */
+    ampNumero(out, String(a - b).padStart(String(a).length, '0'), R, g.p, yRaya + g.dr, g.s, 'G');
+    const anchoCifra = g.s * AMP_ANCHO_CIFRA, anchoMarca = g.ms * AMP_ANCHO_CIFRA;
+    for (const col of ampPrestamosResta(a, b)) {
+      /* «1» pegado a la izquierda de la cifra del minuendo que recibe 10 … */
+      ampTexto(out, '1', R - col * g.p - 0.4 - anchoMarca, filaY(0) - g.my, g.ms, 'R');
+      /* … y «1» pegado a la derecha de la cifra del sustraendo que recibe 1 */
+      ampTexto(out, '1', R - (col + 1) * g.p + anchoCifra + 0.4, filaY(1) - g.my, g.ms, 'R');
+    }
+  }
+}
+
+/* ---------- Multiplicaciones ---------- */
+function ampEnunciadoMult1(out, lx, ly, o) {
+  const s = 21.6, p = 20.55, R = lx + 104.5;
+  ampNumero(out, o.a, R, p, ly + 16.9, s, 'K');
+  ampNumero(out, o.b, R, p, ly + 53.9, s, 'K');
+  ampTexto(out, '×', R - String(o.b).length * p - 0.3, ly + 53.9, s, 'B');
+  ampRaya(out, lx + 19, ly + 79.7, lx + 120.8, 1.5);
+}
+function ampSolucionMult1(out, lx, ly, o) {
+  const s = 17.1, p = 17.13, R = lx + 107.5, cs = 9.5;
+  const llev = ampLlevadasProducto(o.a, o.b);
+  for (const col in llev) ampTexto(out, String(llev[col]), ampCentrada(R - col * p, s, cs), ly + 2.4, cs, 'R');
+  ampNumero(out, o.a, R, p, ly + 18.4, s, 'K');
+  ampNumero(out, o.b, R, p, ly + 46.4, s, 'K');
+  ampTexto(out, '×', R - String(o.b).length * p - 0.2, ly + 46.4, s, 'B');
+  ampRaya(out, lx + 19, ly + 67.7, lx + 120.8, 1.5);
+  ampNumero(out, o.a * o.b, R, p, ly + 71.5, s, 'G');
+}
+function ampEnunciadoMult2(out, lx, ly, o) {
+  const s = 23.2, p = 22.07, R = lx + 153;
+  ampNumero(out, o.a, R, p, ly + 19.6, s, 'K');
+  ampNumero(out, o.b, R, p, ly + 57.6, s, 'K');
+  ampTexto(out, '×', R - String(o.b).length * p - 0.3, ly + 57.6, s, 'B');
+  ampRaya(out, lx + 17, ly + 85, lx + 170.4, 1.5);
+}
+function ampSolucionMult2(out, lx, ly, o) {
+  const s = 23.2, p = 22.07, R = lx + 153, cs = 9;
+  const u = o.b % 10, d = Math.floor(o.b / 10) % 10;
+  /* Fila de arriba: llevadas de las decenas; fila de abajo: de las unidades */
+  [[ampLlevadasProducto(o.a, d), 7.7], [ampLlevadasProducto(o.a, u), 17.7]].forEach(([llev, y]) => {
+    for (const col in llev) ampTexto(out, String(llev[col]), ampCentrada(R - col * p, s, cs), ly + y, cs, 'R');
+  });
+  ampNumero(out, o.a, R, p, ly + 27.6, s, 'K');
+  ampNumero(out, o.b, R, p, ly + 52.6, s, 'K');
+  ampTexto(out, '×', R - String(o.b).length * p - 0.3, ly + 52.6, s, 'B');
+  ampRaya(out, lx + 17, ly + 80, lx + 170.4, 1.5);
+  ampNumero(out, o.a * u, R, p, ly + 82.8, s, 'K');
+  ampNumero(out, o.a * d, R - p, p, ly + 107.8, s, 'K');   /* desplazado una columna */
+  ampRaya(out, lx + 17, ly + 135.2, lx + 170.4, 1.5);
+  ampNumero(out, o.a * o.b, R, p, ly + 137.9, s, 'G');
+}
+
+/* ---------- Divisiones ---------- */
+function ampGalera(out, lx, ly, o) {
+  const s = 18.8, p = 16.33;
+  const D = String(o.a), d = String(o.b);
+  const xCifra = i => lx + 12.9 + i * p;
+  for (let i = 0; i < D.length; i++) ampTexto(out, D[i], xCifra(i), ly + 15.1, s, 'K');
+  const vx = xCifra(D.length - 1) + s * AMP_ANCHO_CIFRA + 5.5;
+  ampRayaV(out, vx, ly + 14.0, ly + 35.2 + 0.8, 1.6);
+  ampRaya(out, vx - 0.8, ly + 35.2, vx + 81.6, 1.6);
+  for (let j = 0; j < d.length; j++) ampTexto(out, d[j], vx + 4.4 + j * p, ly + 15.1, s, 'K');
+  return { xCifra, vx, s, p };
+}
+function ampEnunciadoDiv(out, lx, ly, o) { ampGalera(out, lx, ly, o); }
+function ampSolucionDiv(out, lx, ly, o) {
+  const { xCifra, vx, s } = ampGalera(out, lx, ly, o);
+  const { cociente, filas } = ampPasosDivision(o.a, o.b);
+  for (let j = 0; j < cociente.length; j++) ampTexto(out, cociente[j], vx + 3.9 + j * 16.3, ly + 35.8, 20.6, 'G');
+  filas.forEach((f, k) => {
+    const y = ly + 41.1 + k * 26;
+    for (let i = 0; i < f.txt.length; i++) {
+      ampTexto(out, f.txt[f.txt.length - 1 - i], xCifra(f.pos - i), y, s, 'K');
+    }
+  });
+}
+
+/* ---------- Página completa ---------- */
+/* Cuadrícula de 10 pt, trazo de 0,5 pt, como en los cuadernillos */
+const AMP_CUADRICULA = (() => {
+  let d = '';
+  for (let x = 0; x <= 590; x += 10) d += `M${x} 0V841.89`;
+  for (let y = 1.89; y <= 841.89; y += 10) d += `M0 ${y.toFixed(2)}H595.28`;
+  return '<svg class="amp-cuadricula" viewBox="0 0 595.28 841.89" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    + `<path d="${d}" fill="none" stroke="#e8ecf1" stroke-width="0.5"/></svg>`;
+})();
+
+function ampPagina(titulo, codigo, ops, tipo, conSolucion) {
+  const cfg = AMP_TIPOS[tipo];
+  const rej = AMP_REJILLA[cfg.rejilla];
+  const out = [AMP_CUADRICULA];
+  out.push(`<span class="amp-t amp-h" style="left:0;width:595.28pt;text-align:center;`
+    + `top:${(12.5 - 0.1285 * 12).toFixed(2)}pt;font-size:12pt;color:${AMP_COLOR.K}">${titulo}</span>`);
+  out.push(`<span class="amp-t" style="right:${(595.28 - 583.3).toFixed(2)}pt;`
+    + `top:${(15.7 + 0.0585 * 8).toFixed(2)}pt;font-size:8pt;color:${AMP_COLOR.L}">HOJA ${codigo}</span>`);
+
+  ops.forEach((o, i) => {
+    const lx = 14 + (i % rej.cols) * rej.px;
+    const ly = 36.1 + Math.floor(i / rej.cols) * rej.py;
+    ampTexto(out, aRomano(i + 1) + '.', lx, ly, 7.5, 'L', 'Hn');
+    if (o.op === '+' || o.op === '−') {
+      conSolucion ? ampSolucionBasica(out, lx, ly, o, AMP_SOL_BASICA[cfg.sol]) : ampEnunciadoBasica(out, lx, ly, o);
+    } else if (o.op === '×') {
+      if (cfg.rejilla === 'mult1') conSolucion ? ampSolucionMult1(out, lx, ly, o) : ampEnunciadoMult1(out, lx, ly, o);
+      else conSolucion ? ampSolucionMult2(out, lx, ly, o) : ampEnunciadoMult2(out, lx, ly, o);
+    } else {
+      conSolucion ? ampSolucionDiv(out, lx, ly, o) : ampEnunciadoDiv(out, lx, ly, o);
+    }
+  });
+  return out.join('');
+}
+
+/* Código de la hoja amplia: 4 cifras + letra del tipo (como en los cuadernillos) */
+function generarCodigoAmplio(tipo) {
+  let n = '';
+  for (let i = 0; i < 4; i++) n += alAzar(0, 9);
+  return n + '-' + AMP_TIPOS[tipo].letra;
+}
+
+function generarHojaAmplia(tipo) {
+  const codigo = generarCodigoAmplio(tipo);
+  const ops = ampListaOperaciones(tipo);
+  document.getElementById('codigo-ejercicios').textContent = 'HOJA ' + codigo;
+  document.getElementById('codigo-soluciones').textContent = 'HOJA ' + codigo + ' · SOLUCIONES';
+  document.getElementById('sub-soluciones').textContent = 'Hoja ' + codigo;
+  document.getElementById('lienzo-amplia-ejercicios').innerHTML =
+    ampPagina('Resuelve las siguientes operaciones', codigo, ops, tipo, false);
+  document.getElementById('lienzo-amplia-soluciones').innerHTML =
+    ampPagina('Solucionario', codigo, ops, tipo, true);
+}
+
+/* =====================================================================
    GENERACIÓN DE LA HOJA
    ===================================================================== */
 const ALTO_UTIL_A4 = 940;  /* px disponibles bajo el título en un A4 */
@@ -775,6 +1151,17 @@ function generarHoja() {
   const contenedorSol = document.getElementById('soluciones');
   contenedor.innerHTML = '';
   contenedorSol.innerHTML = '';
+
+  const amplia = formatoAmplio();
+  document.body.classList.toggle('modo-amplia', amplia);
+  document.querySelectorAll('#zona-hojas .hoja').forEach(h => h.classList.toggle('amplia', amplia));
+  document.getElementById('estilo-pagina-amplia').disabled = !amplia;
+  if (amplia) {
+    generarHojaAmplia(tipo);
+    return;
+  }
+  document.getElementById('lienzo-amplia-ejercicios').innerHTML = '';
+  document.getElementById('lienzo-amplia-soluciones').innerHTML = '';
 
   /* Código identificativo común a ejercicio y solucionario */
   const codigo = generarCodigo();
@@ -859,7 +1246,7 @@ async function exportarPDF() {
   try {
     const opciones = {
       margin: 0,
-      filename: `Hoja_${codigo}${conSoluciones ? '_con_soluciones' : ''}.pdf`,
+      filename: `Hoja_${formatoAmplio() ? 'amplia_' : ''}${codigo}${conSoluciones ? '_con_soluciones' : ''}.pdf`,
       image: { type: 'jpeg', quality: 0.97 },
       html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -882,14 +1269,50 @@ async function exportarPDF() {
 /* =====================================================================
    CONTROLES
    ===================================================================== */
-document.getElementById('tipo-operacion').addEventListener('change', () => {
+function formatoAmplio() {
+  return document.getElementById('formato-hoja').value === 'amplia';
+}
+
+/* Tipos del formato estándar (se guardan para poder volver a ellos) */
+const OPCIONES_ESTANDAR = Array.from(document.getElementById('tipo-operacion').options)
+  .map(o => [o.value, o.textContent]);
+/* Equivalencias al cambiar de formato, para conservar el tipo elegido */
+const A_AMPLIA = { suma2: 'a-suma2', suma3: 'a-suma3', resta: 'a-resta', mult1: 'a-mult1',
+                   mult2: 'a-mult2', div1: 'a-div1', div2: 'a-div2', combinada: 'a-mixta' };
+const A_ESTANDAR = { 'a-sumas': 'suma2', 'a-suma2': 'suma2', 'a-suma3': 'suma3', 'a-resta': 'resta',
+                     'a-mixta': 'combinada', 'a-mult1': 'mult1', 'a-mult2': 'mult2',
+                     'a-div1': 'div1', 'a-div2': 'div2' };
+
+function rellenarTipos() {
+  const sel = document.getElementById('tipo-operacion');
+  const previo = sel.value;
+  const amplia = formatoAmplio();
+  const opciones = amplia
+    ? Object.entries(AMP_TIPOS).map(([v, t]) => [v, t.nombre])
+    : OPCIONES_ESTANDAR;
+  sel.innerHTML = opciones.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+  const destino = amplia ? A_AMPLIA[previo] : A_ESTANDAR[previo];
+  if (destino && opciones.some(([v]) => v === destino)) sel.value = destino;
+  actualizarPanelCombinada();
+}
+
+function actualizarPanelCombinada() {
   const tipo = document.getElementById('tipo-operacion').value;
-  document.getElementById('panel-combinada').classList.toggle('visible', tipo === 'combinada');
+  document.getElementById('panel-combinada').classList.toggle('visible', !formatoAmplio() && tipo === 'combinada');
+}
+
+document.getElementById('formato-hoja').addEventListener('change', () => {
+  rellenarTipos();
+  generarHoja();
+});
+document.getElementById('tipo-operacion').addEventListener('change', () => {
+  actualizarPanelCombinada();
   generarHoja();
 });
 document.getElementById('incluir-soluciones').addEventListener('change', aplicarOpcionSoluciones);
 document.querySelectorAll('.chk-tipo').forEach(c => c.addEventListener('change', generarHoja));
 
+rellenarTipos();   /* por si el navegador restaura el formato al recargar */
 generarHoja();
 </script>
 </body>
