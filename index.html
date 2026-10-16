@@ -78,12 +78,17 @@
   .aviso-error.visible { display: block; }
 
   /* ================= HOJAS ================= */
+  /* La hoja mide SIEMPRE un A4 (210 × 296 mm; 1 mm menos de alto evita una
+     página en blanco por redondeo) y es idéntica en pantalla, al imprimir y al
+     exportar a PDF: la página se imprime sin márgenes y los márgenes son el
+     relleno de la hoja (los mismos que salían antes al imprimir). */
   .hoja {
     width: 210mm;
-    min-height: 292mm;
+    height: 296mm;
+    overflow: hidden;
     margin: 0 auto 40px;
     background: white;
-    padding: 13mm 14mm 10mm 20mm;
+    padding: 15mm 12mm 13mm 21mm;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     position: relative;
@@ -95,13 +100,16 @@
     print-color-adjust: exact;
   }
 
-  /* Código identificativo en el margen lateral izquierdo */
+  /* Código identificativo en el margen lateral izquierdo, leído de abajo arriba.
+     Se gira con transform (no con writing-mode, que la exportación a PDF no
+     admite y dibujaba las letras apiladas y del revés). */
   .codigo-hoja {
     position: absolute;
-    left: 5mm;
+    left: 12mm;
     top: 50%;
-    transform: translateY(-50%) rotate(180deg);
-    writing-mode: vertical-rl;
+    transform-origin: 0 0;
+    transform: rotate(-90deg) translateX(-50%);
+    line-height: 1;
     font-family: "Courier New", monospace;
     font-size: 13px;
     font-weight: bold;
@@ -112,9 +120,9 @@
 
   .titulo-hoja {
     text-align: center;
-    font-size: 22px;
+    font-size: 20px;
     font-weight: bold;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
     color: #1f2937;
   }
   .titulo-hoja .sub {
@@ -125,13 +133,13 @@
   .contenedor-operaciones {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 28px 22px;
+    gap: 24px 22px;
   }
-  .contenedor-operaciones.dos-col { grid-template-columns: repeat(2, 1fr); gap: 28px 40px; }
+  .contenedor-operaciones.dos-col { grid-template-columns: repeat(2, 1fr); gap: 24px 40px; }
 
   .operacion {
     line-height: 1.5;
-    font-size: 18px;
+    font-size: 16px;
     position: relative;
     padding-left: 42px;
     break-inside: avoid;
@@ -148,8 +156,8 @@
   .esp-basica { height: 48px; }    /* suma, resta */
   .esp-mult1  { height: 96px; }    /* mult. ×1 cifra: llevadas + resultado con holgura */
   .esp-mult2  { height: 200px; }   /* mult. ×2 cifras: 2 productos parciales + suma */
-  .esp-div1   { height: 168px; }   /* división ÷1 cifra: bajadas y restos */
-  .esp-div2   { height: 240px; }   /* división ÷2 cifras: tanteos y restos */
+  .esp-div1   { height: 150px; }   /* división ÷1 cifra: bajadas y restos */
+  .esp-div2   { height: 215px; }   /* división ÷2 cifras: tanteos y restos */
 
   /* ====== GALERA (idéntica a la app de solucionario) ====== */
   .division-galera {
@@ -194,9 +202,13 @@
   .tabla-solucion.enunciado .signo { color: #1f2937; width: auto; }
   .tabla-solucion.enunciado .linea-cell { border-top: 2px solid #000; }
 
-  .hoja-soluciones .operacion { font-size: 16px; }
+  .hoja-soluciones .operacion { font-size: 15px; }
 
-  /* ================= IMPRESIÓN ================= */
+  /* ================= IMPRESIÓN =================
+     Se imprime la misma hoja que se ve en pantalla, sin reescalar nada:
+     página A4 sin márgenes del navegador y hoja de 210 × 296 mm. */
+  @page { size: A4 portrait; margin: 0; }
+
   @media print {
     body { background: white; padding: 0; }
     .controles, .panel-combinada, .aviso-error { display: none !important; }
@@ -204,49 +216,19 @@
     .hoja {
       box-shadow: none;
       border-radius: 0;
-      width: auto;
-      min-height: auto;
       margin: 0;
-      padding: 5mm 3mm 3mm 12mm;
-      background-image:
-        linear-gradient(to right, #eef0f3 1px, transparent 1px),
-        linear-gradient(to bottom, #eef0f3 1px, transparent 1px);
-      background-size: 20px 20px;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
       page-break-after: always;
+      break-after: page;
     }
-    .hoja:last-child { page-break-after: auto; }
+    .hoja:last-child { page-break-after: auto; break-after: auto; }
 
     body:not(.imprimir-con-soluciones) .hoja-soluciones { display: none !important; }
-
-    /* Compresión SOLO de impresión: la hoja se imprime completa, tal como
-       está en pantalla, con todas sus operaciones. Fuente y huecos se reducen
-       un punto para que el peor caso (6 filas de sumas de 3 filas, ~956px en
-       pantalla) entre con margen en el área imprimible real (~940px). */
-    .titulo-hoja { font-size: 20px; margin-bottom: 18px; }
-    .contenedor-operaciones { gap: 24px 22px; }
-    .contenedor-operaciones.dos-col { gap: 24px 40px; }
-    .operacion { font-size: 16px; }
-    .hoja-soluciones .operacion { font-size: 15px; }
-    .esp-div1 { height: 150px; }
-    .esp-div2 { height: 215px; }
-
-    @page { margin: 10mm 9mm; size: A4 portrait; }
   }
 
-  /* Durante la exportación a PDF (se captura la hoja en pantalla):
-     misma compresión que en impresión para que cada hoja quepa en su página */
+  /* Durante la exportación a PDF se captura la hoja tal como está en pantalla */
   body.exportando-pdf .hoja {
     box-shadow: none; border-radius: 0; margin: 0 auto;
   }
-  body.exportando-pdf .titulo-hoja { font-size: 20px; margin-bottom: 18px; }
-  body.exportando-pdf .contenedor-operaciones { gap: 24px 22px; }
-  body.exportando-pdf .contenedor-operaciones.dos-col { gap: 24px 40px; }
-  body.exportando-pdf .operacion { font-size: 16px; }
-  body.exportando-pdf .hoja-soluciones .operacion { font-size: 15px; }
-  body.exportando-pdf .esp-div1 { height: 150px; }
-  body.exportando-pdf .esp-div2 { height: 215px; }
 
   /* ================= HOJA AMPLIA =================
      Formato de los cuadernillos: A4 a sangre con cuadrícula de 10 pt,
@@ -274,20 +256,6 @@
   .amp-n { font-weight: 400; }
   .amp-l { position: absolute; background: #1e293b; }
 
-  @media print {
-    body.modo-amplia .hoja.amplia {
-      width: 210mm; height: 296mm; min-height: 0;
-      padding: 0; margin: 0; overflow: hidden;
-      background-image: none;
-      page-break-after: always; break-after: page;
-    }
-    body.modo-amplia .hoja.amplia:last-child { page-break-after: auto; break-after: auto; }
-  }
-</style>
-<!-- En hoja amplia la cuadrícula llega al borde del papel: la página se imprime
-     sin márgenes. Esta hoja de estilo solo se activa en ese formato. -->
-<style id="estilo-pagina-amplia" media="print">
-  @page { size: A4 portrait; margin: 0; }
 </style>
 </head>
 <body>
@@ -1155,7 +1123,6 @@ function generarHoja() {
   const amplia = formatoAmplio();
   document.body.classList.toggle('modo-amplia', amplia);
   document.querySelectorAll('#zona-hojas .hoja').forEach(h => h.classList.toggle('amplia', amplia));
-  document.getElementById('estilo-pagina-amplia').disabled = !amplia;
   if (amplia) {
     generarHojaAmplia(tipo);
     return;
